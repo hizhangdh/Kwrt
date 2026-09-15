@@ -64,17 +64,17 @@ jobs:
         sed -i "1a REPO_TOKEN=${{ secrets.TOKEN_KIDDIN9 }}" ${{ github.workspace }}/devices/common/diy.sh
         sed -i "1a TARGET=${{matrix.target}}" ${{ github.workspace }}/devices/common/diy.sh
 
-    - name: Trigger Packages Update
-      continue-on-error: true
-      if: contains(github.event.action, 'pkg')
-      run: |
-        status=$(curl -H "Authorization: token ${{ secrets.TOKEN_KIDDIN9 }}" -s "https://api.github.com/repos/hizhangdh/op-packages/actions/runs" | jq -r '.workflow_runs[0].status')
-        if [[ "$status" == "completed" ]]; then
-          curl -X POST https://api.github.com/repos/hizhangdh/op-packages/dispatches \
-            -H "Accept: application/vnd.github.everest-preview+json" \
-            -H "Authorization: token ${{ secrets.TOKEN_KIDDIN9 }}" \
-          --data '{"event_type": "update"}'
-        fi
+#    - name: Trigger Packages Update
+#      continue-on-error: true
+#      if: contains(github.event.action, 'pkg')
+#      run: |
+#        status=$(curl -H "Authorization: token ${{ secrets.TOKEN_KIDDIN9 }}" -s "https://api.github.com/repos/hizhangdh/op-packages/actions/runs" | jq -r '.workflow_runs[0].status')
+#        if [[ "$status" == "completed" ]]; then
+#          curl -X POST https://api.github.com/repos/hizhangdh/op-packages/dispatches \
+#            -H "Accept: application/vnd.github.everest-preview+json" \
+#            -H "Authorization: token ${{ secrets.TOKEN_KIDDIN9 }}" \
+#          --data '{"event_type": "update"}'
+#        fi
 
     - name: Free disk space
       uses: coder-xiaomo/free-disk-space@main
