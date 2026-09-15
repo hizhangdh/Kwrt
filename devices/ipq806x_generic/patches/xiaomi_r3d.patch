@@ -1,49 +1,8 @@
-From c433730d889d0dfb31bdcf4f102ca47939606c46 Mon Sep 17 00:00:00 2001
-From: remittor <remittor@gmail.com>
-Date: Fri, 11 Aug 2023 12:08:30 +0300
-Subject: [PATCH] ipq806x: Add support for Xiaomi Mi Router HD (R3D)
-
-Xiaomi R3D is a 2.4/5 GHz band 11ac router, based on IPQ8064.
-
-Specification:
-* SoC: Qualcomm IPQ8064
-* RAM: 512MB DDR3
-* Flash: 256MB NAND (Macronix MX30UF2G18AC-TI)
-* Ethernet: 4x 10/100/1000 Mbps (1x WAN, 3x LAN)
-* WiFi: Qualcomm QCA9984 (5GHz, 4T4R, n/ac)
-* WiFi: Qualcomm QCA9980 (2.4GHz, 4T4R, b/g/n)
-* USB: 1x 3.0
-* SATA: 1x SATA 3.1 (only for internal HDD 3.5")
-* BTN: Power, Reset
-* LEDS: Status(Green/Blue/Red)
-* UART: present as 4-pads on the PCB (3.3V, 115200-8-N-1)
-
-MAC addresses as verified by stock firmware:
-
-| Interface   |       MAC         |  ART    | Format |
-|-------------+-------------------+---------+--------|
-| WAN (label) | xx:xx:xx:xx:xx:B2 | 0x0     | binary |
-| LAN         | xx:xx:xx:xx:xx:B3 | 0x6     | binary |
-| WiFi 2g     | xx:xx:xx:xx:xx:B4 | 0x1006  | binary |
-| WiFi 5g     | xx:xx:xx:xx:xx:B5 | 0x5006  | binary |
----
- package/boot/uboot-tools/uboot-envtools/files/ipq806x     |   6 +-
- .../ipq806x/base-files/etc/board.d/02_network |   4 +
- .../etc/hotplug.d/firmware/11-ath10k-caldata  |   6 +
- .../ipq806x/base-files/etc/init.d/bootcount   |   8 +
- .../base-files/lib/upgrade/platform.sh        |   3 +
- .../ipq806x/base-files/lib/upgrade/xiaomi.sh  | 441 ++++++++++++++++
- .../arch/arm/boot/dts/qcom-ipq8064-r3d.dts    | 479 ++++++++++++++++++
- target/linux/ipq806x/image/generic.mk         |  17 +
- 8 files changed, 963 insertions(+), 1 deletion(-)
- create mode 100644 target/linux/ipq806x/base-files/lib/upgrade/xiaomi.sh
- create mode 100644 target/linux/ipq806x/files-6.12/arch/arm/boot/dts/qcom-ipq8064-r3d.dts
-
 diff --git a/package/boot/uboot-tools/uboot-envtools/files/ipq806x b/package/boot/uboot-tools/uboot-envtools/files/ipq806x
-index 01a86c7b19fca..c0a781c1e21b4 100644
+index a018d0d7e5..42d9b5b655 100644
 --- a/package/boot/uboot-tools/uboot-envtools/files/ipq806x
 +++ b/package/boot/uboot-tools/uboot-envtools/files/ipq806x
-@@ -52,6 +52,10 @@ qcom,ipq8064-ap148|\
+@@ -58,6 +58,10 @@ netgear,r7800)
  nokia,ac400i)
  	ubootenv_add_uci_config "/dev/mtd20" "0x0" "0x040000" "0x20000"
  	;;
@@ -54,7 +13,7 @@ index 01a86c7b19fca..c0a781c1e21b4 100644
  ubnt,unifi-ac-hd|\
  zyxel,nbg6817)
  	ubootenv_add_uci_config "/dev/mtdblock9" "0x0" "0x10000" "0x10000"
-@@ -59,6 +63,6 @@ zyxel,nbg6817)
+@@ -65,6 +69,6 @@ zyxel,nbg6817)
  esac
  
  config_load ubootenv
@@ -62,35 +21,29 @@ index 01a86c7b19fca..c0a781c1e21b4 100644
 +config_foreach ubootenv_add_app_config
  
  exit 0
-diff --git a/target/linux/ipq806x/base-files/etc/hotplug.d/firmware/11-ath10k-caldata b/target/linux/ipq806x/base-files/etc/hotplug.d/firmware/11-ath10k-caldata
-index 4c5019cf5bd24..aa8ed06aae4b3 100644
---- a/target/linux/ipq806x/base-files/etc/hotplug.d/firmware/11-ath10k-caldata
-+++ b/target/linux/ipq806x/base-files/etc/hotplug.d/firmware/11-ath10k-caldata
-@@ -56,6 +56,9 @@ case "$FIRMWARE" in
- 		caldata_extract "0:art" 0x1000 0x2f20
- 		ath10k_patch_mac $(macaddr_add $(mtd_get_mac_ascii 0:appsblenv ethaddr) +2)
+diff --git a/target/linux/ipq806x/base-files/etc/board.d/02_network b/target/linux/ipq806x/base-files/etc/board.d/02_network
+index e034172886..946e34eabc 100644
+--- a/target/linux/ipq806x/base-files/etc/board.d/02_network
++++ b/target/linux/ipq806x/base-files/etc/board.d/02_network
+@@ -70,6 +70,13 @@ ipq806x_setup_interfaces()
+ 	qcom,ipq8064-db149)
+ 		ucidef_set_interface_lan "eth1 eth2 eth3 lan1 lan2 lan3 lan4" "wan"
  		;;
 +	xiaomi,r3d)
-+		caldata_extract "ART" 0x1000 0x2f20
-+		;;
- 	zyxel,nbg6817)
- 		caldata_extract "0:art" 0x1000 0x2f20
- 		ath10k_patch_mac $(macaddr_add $(mtd_get_mac_ascii 0:appsblenv ethaddr) 1)
-@@ -92,6 +95,9 @@ case "$FIRMWARE" in
- 		caldata_extract "0:art" 0x5000 0x2f20
- 		ath10k_patch_mac $(macaddr_add $(mtd_get_mac_ascii 0:appsblenv ethaddr) +3)
++    		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3" "wan"
++		ucidef_set_network_device_conduit "lan1" "eth1"
++    		ucidef_set_network_device_conduit "lan2" "eth1"
++    		ucidef_set_network_device_conduit "lan3" "eth1"
++    		ucidef_set_network_device_conduit "wan" "eth0"
++    		;;
+ 	*)
+ 		echo "Unsupported hardware. Network interfaces not intialized"
  		;;
-+	xiaomi,r3d)
-+		caldata_extract "ART" 0x5000 0x2f20
-+		;;
- 	zyxel,nbg6817)
- 		caldata_extract "0:art" 0x5000 0x2f20
- 		ath10k_patch_mac $(mtd_get_mac_ascii 0:appsblenv ethaddr)
 diff --git a/target/linux/ipq806x/base-files/etc/init.d/bootcount b/target/linux/ipq806x/base-files/etc/init.d/bootcount
-index cb32a4ed3568d..9d9ab3f100fe2 100755
+index 1b9ace9f63..49698822aa 100755
 --- a/target/linux/ipq806x/base-files/etc/init.d/bootcount
 +++ b/target/linux/ipq806x/base-files/etc/init.d/bootcount
-@@ -16,5 +16,13 @@ boot() {
+@@ -21,5 +21,13 @@ boot() {
  	linksys,ea8500)
  		mtd resetbc s_env || true
  		;;
@@ -105,10 +58,10 @@ index cb32a4ed3568d..9d9ab3f100fe2 100755
  	esac
  }
 diff --git a/target/linux/ipq806x/base-files/lib/upgrade/platform.sh b/target/linux/ipq806x/base-files/lib/upgrade/platform.sh
-index 5ec4f513bd33d..b142fce86a082 100644
+index e980598a38..0d414714d2 100644
 --- a/target/linux/ipq806x/base-files/lib/upgrade/platform.sh
 +++ b/target/linux/ipq806x/base-files/lib/upgrade/platform.sh
-@@ -71,6 +71,9 @@ platform_do_upgrade() {
+@@ -95,6 +95,9 @@ platform_do_upgrade() {
  		MTD_CONFIG_ARGS="-s 0x200000"
  		default_do_upgrade "$1"
  		;;
@@ -120,7 +73,7 @@ index 5ec4f513bd33d..b142fce86a082 100644
  		;;
 diff --git a/target/linux/ipq806x/base-files/lib/upgrade/xiaomi.sh b/target/linux/ipq806x/base-files/lib/upgrade/xiaomi.sh
 new file mode 100644
-index 0000000000000..9246e8f867e3f
+index 0000000000..9246e8f867
 --- /dev/null
 +++ b/target/linux/ipq806x/base-files/lib/upgrade/xiaomi.sh
 @@ -0,0 +1,441 @@
@@ -567,7 +520,7 @@ index 0000000000000..9246e8f867e3f
 +}
 diff --git a/target/linux/ipq806x/files-6.12/arch/arm/boot/dts/qcom/qcom-ipq8064-r3d.dts b/target/linux/ipq806x/files-6.12/arch/arm/boot/dts/qcom/qcom-ipq8064-r3d.dts
 new file mode 100644
-index 0000000000000..fd952d230c5da
+index 0000000000..fd952d230c
 --- /dev/null
 +++ b/target/linux/ipq806x/files-6.12/arch/arm/boot/dts/qcom/qcom-ipq8064-r3d.dts
 @@ -0,0 +1,479 @@
@@ -1051,10 +1004,10 @@ index 0000000000000..fd952d230c5da
 +	};
 +};
 diff --git a/target/linux/ipq806x/image/generic.mk b/target/linux/ipq806x/image/generic.mk
-index aac0a2c8fadfd..b437706cd445e 100644
+index a3b7e5ea29..972a4e7b9c 100644
 --- a/target/linux/ipq806x/image/generic.mk
 +++ b/target/linux/ipq806x/image/generic.mk
-@@ -471,6 +471,23 @@ define Device/ubnt_unifi-ac-hd
+@@ -630,6 +630,23 @@ define Device/ubnt_unifi-ac-hd
  endef
  TARGET_DEVICES += ubnt_unifi-ac-hd
  
