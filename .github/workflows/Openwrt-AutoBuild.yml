@@ -64,18 +64,6 @@ jobs:
         sed -i "1a REPO_TOKEN=${{ secrets.TOKEN_KIDDIN9 }}" ${{ github.workspace }}/devices/common/diy.sh
         sed -i "1a TARGET=${{matrix.target}}" ${{ github.workspace }}/devices/common/diy.sh
 
-#    - name: Trigger Packages Update
-#      continue-on-error: true
-#      if: contains(github.event.action, 'pkg')
-#      run: |
-#        status=$(curl -H "Authorization: token ${{ secrets.TOKEN_KIDDIN9 }}" -s "https://api.github.com/repos/hizhangdh/op-packages/actions/runs" | jq -r '.workflow_runs[0].status')
-#        if [[ "$status" == "completed" ]]; then
-#          curl -X POST https://api.github.com/repos/hizhangdh/op-packages/dispatches \
-#            -H "Accept: application/vnd.github.everest-preview+json" \
-#            -H "Authorization: token ${{ secrets.TOKEN_KIDDIN9 }}" \
-#          --data '{"event_type": "update"}'
-#        fi
-
     - name: Free disk space
       uses: coder-xiaomo/free-disk-space@main
       with:
@@ -222,10 +210,6 @@ jobs:
         clean: ${{ contains(github.event.action, 'nocache') }}
         prefix: ${{ github.workspace }}/openwrt
 
-    - name: SSH connection to Actions
-      uses: kiddin9/debugger-action@master
-      if: contains(github.event.action, 'ssh')
-
     - name: Compile the firmware
       id: compile
       run: |
@@ -249,19 +233,6 @@ jobs:
         Emoji=("🎉" "🤞" "✨" "🎁" "🎈" "🎄" "🎨" "💋" "🍓" "🍕" "🍉" "💐" "🌴" "🚀" "🛸" "🗽" "⛅" "🌈" "🔥" "⛄" "🐶" "🏅" "🦄" "🐤")
         echo "EMOJI=${Emoji[$[$RANDOM % ${#Emoji[@]}]]}" >> $GITHUB_ENV
 
-    - name: Deploy imagebuilder to server
-      uses: easingthemes/ssh-deploy@main
-      if: env.SSH_PRIVATE_KEY && ! contains(github.event.action, 'noser')
-      with:
-        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-        ARGS: "-avr --timeout=600 --include='kwrt-imagebuilder-*' --include='kwrt-*-initramfs*' --exclude='kwrt-*'"
-        SSH_CMD_ARGS: "-o ServerAliveInterval=30 -o ServerAliveCountMax=10 -o StrictHostKeyChecking=no"
-        SOURCE: openwrt/bin/targets
-        REMOTE_HOST: ${{ secrets.SERVER_HOST }}
-        REMOTE_USER: ${{ secrets.SERVER_USERNAME }}
-        REMOTE_PORT: 22
-        TARGET: "/www/wwwroot/dl.openwrt.ai/releases/tmp/"
-
     - name: Upload firmware for artifact
       uses: actions/upload-artifact@main
       if: env.UPLOAD_FIRMWARE_FOR_ARTIFACT == 'true'
@@ -270,42 +241,7 @@ jobs:
         path: |
           openwrt/bin/targets/ipq806x/generic/*xiaomi_r3d*uImage
           openwrt/bin/targets/ipq806x/generic/*xiaomi_r3d*.bin
-
-    - name: Create release
-      id: create_release
-      if: env.REPO_TOKEN && env.UPLOAD_FIRMWARE_FOR_RELEASE == 'true'
-      continue-on-error: true
-      run: |
-        echo -e "墙内加速下载 🚀:\n" >> release.txt
-        echo -e "[腾讯云] (https://dl.openwrt.ai/firmware/${{matrix.target}}/ ☁)\n" >> release.txt
-        [ ${{ env.WETRANS }} ] && echo -e "[WeTransfer] (${{ env.WETRANS }} 🗽)\n" >> release.txt
-        [ ${{ env.COWURL }} ] && echo -e "[奶牛上传] (${{ env.COWURL }} 🐮)\n" >> release.txt
-        [ ${{ env.NOTICE }} ] && echo -e "${{ env.NOTICE }}" >> release.txt || true
-
-    - name: Upload firmware for release
-      uses: softprops/action-gh-release@master
-      continue-on-error: true
-      if: env.REPO_TOKEN && env.UPLOAD_FIRMWARE_FOR_RELEASE == 'true'
-      env:
-        GITHUB_TOKEN: ${{ secrets.TOKEN_KIDDIN9 }}
-      with:
-        files: "${{ env.FIRMWARE }}/*"
-        name: ${{ env.date2 }} ${{matrix.target}} ${{ env.EMOJI }}
-        tag_name: ${{ env.date }}_${{matrix.target}}
-        body_path: release.txt
     
-    - name: WeChat notification
-      continue-on-error: true
-      if: env.SCKEY
-      run: |
-        # [ steps.compile.outputs.status == 'success' ] && curl https://sctapi.ftqq.com/${{ secrets.SCKEY }}.send?text=🎉OpenWrt_${{ env.VERSION }}_${{matrix.target}}编译完成😋|| curl https://sctapi.ftqq.com/${{ secrets.SCKEY }}.send?text=❌OpenWrt_${{ env.VERSION }}_${{matrix.target}}编译失败😂
-
-    - name: Telegram notification
-      if: env.TELEGRAM_TOKEN && ! contains(github.event.action, 'notg')
-      continue-on-error: true
-      run: |
-        curl -k --data chat_id="${{ env.TELEGRAM_CHAT_ID }}" --data "text=🎉 OpenWrt ${{ env.VERSION }} ${{matrix.target}} 编译成功 😋  https://dl.openwrt.ai/firmware/${{matrix.target}}/  ${{ env.COWURL }}   ${{ env.WETRANS }} 🚀" "https://api.telegram.org/bot${{ env.TELEGRAM_TOKEN }}/sendMessage"
-
     - name: Delete workflow runs
       uses: GitRML/delete-workflow-runs@main
       continue-on-error: true
