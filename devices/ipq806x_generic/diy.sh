@@ -37,6 +37,12 @@ uci set firewall.@rule[-1].dest_port='80 443'
 uci set firewall.@rule[-1].target='ACCEPT'
 uci commit firewall
 
+# ===== 禁用并停止 firewall 和 dnsmasq =====
+/etc/init.d/firewall disable
+/etc/init.d/firewall stop
+/etc/init.d/dnsmasq disable
+/etc/init.d/dnsmasq stop
+
 # 设置 root 密码
 (echo 'root'; sleep 1; echo 'root') | /bin/busybox passwd root >/dev/null 2>&1
 
