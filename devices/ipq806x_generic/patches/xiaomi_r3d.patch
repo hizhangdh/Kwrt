@@ -542,11 +542,11 @@ index 0000000000..9246e8f867
 +
 +	nand_do_upgrade "$XIAOMI_FW_FILE"
 +}
-diff --git a/target/linux/ipq806x/dts/qcom-ipq8064-r3d.dts b/target/linux/ipq806x/dts/qcom-ipq8064-r3d.dts
+diff --git a/target/linux/ipq806x/files-6.12/arch/arm/boot/dts/qcom/qcom-ipq8064-r3d.dts b/target/linux/ipq806x/files-6.12/arch/arm/boot/dts/qcom/qcom-ipq8064-r3d.dts
 new file mode 100644
-index 0000000000..d7f78f25db
+index 0000000000000..fd952d230c5da
 --- /dev/null
-+++ b/target/linux/ipq806x/dts/qcom-ipq8064-r3d.dts
++++ b/target/linux/ipq806x/files-6.12/arch/arm/boot/dts/qcom/qcom-ipq8064-r3d.dts
 @@ -0,0 +1,542 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
 +
